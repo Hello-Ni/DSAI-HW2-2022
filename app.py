@@ -34,6 +34,42 @@ def LSTM_Model(X_train, y_train):
     return model
 
 
+def preprocessing(train_path, test_path):
+
+    train_data = pd.read_csv(train_path,  header=None)
+    test_data = pd.read_csv(test_path, header=None)
+    train_data = pd.concat([train_data, test_data], axis=0)
+    train_set = train_data.iloc[:, features]  # only train close feature
+
+    # scale data to 0~1 interval
+    train_set = train_set.values.reshape(-1, 1)
+    training_set_scaled = scaler.fit_transform(train_set)
+
+    #
+    train_data = training_set_scaled[0:-20]
+    test_data = training_set_scaled[-35:]
+    X_test = []
+    y_test = []
+    X_train = []
+    y_train = []
+
+    for i in range(scope, len(train_data), 1):
+        X_train.append(train_data[i-scope: i, 0])
+        y_train.append(train_data[i, 0])
+    X_train, y_train = np.array(X_train), np.array(y_train)
+    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+    y_train = np.reshape(y_train, (y_train.shape[0], 1))
+
+    for i in range(scope, len(test_data)):
+        X_test.append(test_data[i-scope: i, 0])
+        y_test.append(test_data[i, 0])
+    X_test, y_test = np.array(X_test), np.array(y_test)
+    X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+    y_test = np.reshape(y_test, (y_test.shape[0], 1))
+
+    return X_train, y_train, X_test, y_test
+
+
 if __name__ == '__main__':
     import argparse
 
