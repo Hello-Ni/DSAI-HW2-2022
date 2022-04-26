@@ -1,27 +1,108 @@
-# You can write code above the if-main block.
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Activation
+from tensorflow.keras.layers import LSTM
+from tensorflow.keras.layers import Dropout, BatchNormalization
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras import regularizers
+from trade import Trading
 
-if __name__ == "__main__":
-    # You should not modify this part.
+# We choose the fourth feature(close value) as training data
+features = 3
+scope = 15  # 15 day predict next day
+scaler = MinMaxScaler(feature_range=(0, 1))
+
+
+def LSTM_Model(X_train, y_train):
+    keras.backend.clear_session()
+    model = Sequential()
+
+    model.add(LSTM(units=16,
+                   batch_input_shape=(1, X_train.shape[1], 1),
+                   stateful=True
+                   ))
+
+    # model.add(Dense(units = 1,activation='sigmoid'))
+    model.add(Dense(units=1))
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    model.fit(X_train, y_train, epochs=1, batch_size=1)
+    # model.fit(X_train, y_train, epochs = 10, batch_size = 1)
+
+    return model
+
+
+def preprocessing(train_path, test_path):
+
+    train_data = pd.read_csv(train_path,  header=None)
+    test_data = pd.read_csv(test_path, header=None)
+    train_data = pd.concat([train_data, test_data], axis=0)
+    train_set = train_data.iloc[:, features]  # only train close feature
+
+    # scale data to 0~1 interval
+    train_set = train_set.values.reshape(-1, 1)
+    training_set_scaled = scaler.fit_transform(train_set)
+
+    #
+    train_data = training_set_scaled[0:-20]
+    test_data = training_set_scaled[-35:]
+    X_test = []
+    y_test = []
+    X_train = []
+    y_train = []
+
+    for i in range(scope, len(train_data), 1):
+        X_train.append(train_data[i-scope: i, 0])
+        y_train.append(train_data[i, 0])
+    X_train, y_train = np.array(X_train), np.array(y_train)
+    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+    y_train = np.reshape(y_train, (y_train.shape[0], 1))
+
+    for i in range(scope, len(test_data)):
+        X_test.append(test_data[i-scope: i, 0])
+        y_test.append(test_data[i, 0])
+    X_test, y_test = np.array(X_test), np.array(y_test)
+    X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+    y_test = np.reshape(y_test, (y_test.shape[0], 1))
+
+    return X_train, y_train, X_test, y_test
+
+
+if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--training", default="training_data.csv", help="input training data file name")
-    parser.add_argument("--testing", default="testing_data.csv", help="input testing data file name")
-    parser.add_argument("--output", default="output.csv", help="output file name")
+    parser.add_argument('--training',
+                        default='training.csv',
+                        help='input training data file name')
+    parser.add_argument('--testing',
+                        default='testing.csv',
+                        help='input testing data file name')
+    parser.add_argument('--output',
+                        default='output.csv',
+                        help='output file name')
     args = parser.parse_args()
 
-    # The following part is an example.
-    # You can modify it at will.
-    training_data = load_data(args.training)
-    trader = Trader()
-    trader.train(training_data)
+    X_train, y_train, X_test, y_test = preprocessing(
+        args.training, args.testing)
+    # predicted
+    predicted_price = LSTM_Model(
+        X_train, y_train).predict(X_test, batch_size=1)
+    scaler.inverse_transform(predicted_price)
 
-    testing_data = load_data(args.testing)
-    with open(args.output, "w") as output_file:
-        for row in testing_data:
-            # We will perform your action as the open price in the next day.
-            action = trader.predict_action(row)
-            output_file.write(action)
+    Tr = Trading(hold=0, stock=0, last_day=0)
+    action = Tr.act(predicted_price)
 
-            # this is your option, you can leave it empty.
-            trader.re_training()
+    test_data = pd.read_csv(args.testing, header=None)
+    test_open_data = test_data.iloc[:, 0]
+    # use close to predict next day open
+    plt.plot(predicted_price, color='red', label='predict')
+    plt.plot(test_open_data, color='blue', label='ans')  # open
+    plt.legend()
+    plt.show()
+
+    with open(args.output, 'w') as output_file:
+        for i in range(len(action)):
+            output_file.writelines(str(action[i])+"\n")
