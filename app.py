@@ -28,7 +28,7 @@ def LSTM_Model(X_train, y_train):
     # model.add(Dense(units = 1,activation='sigmoid'))
     model.add(Dense(units=1))
     model.compile(optimizer='adam', loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=1, batch_size=1)
+    model.fit(X_train, y_train, epochs=20, batch_size=1)
     # model.fit(X_train, y_train, epochs = 10, batch_size = 1)
 
     return model
@@ -87,10 +87,10 @@ if __name__ == '__main__':
 
     X_train, y_train, X_test, y_test = preprocessing(
         args.training, args.testing)
-    # predicted
+    # predicte
     predicted_price = LSTM_Model(
         X_train, y_train).predict(X_test, batch_size=1)
-    scaler.inverse_transform(predicted_price)
+    predicted_price = scaler.inverse_transform(predicted_price)
 
     Tr = Trading(hold=0, stock=0, last_day=0)
     action = Tr.act(predicted_price)
