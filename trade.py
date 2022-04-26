@@ -5,7 +5,7 @@ class Trading():
         self.last = last_day            # Save yesterdays prices
         self.action = []                # Save operation log
 
-    def act(self, prices):
+    def action(self, prices):
         for i in range(prices.shape[0] - 1):
             self.last = prices[i]
             if i == 0:
